@@ -2,7 +2,16 @@
 # Config
 # -----------------------
 
-$ExcludePattern = "(?i)\.NET Framework|Malicious Software Removal Tool|Microsoft Defender|Preview"
+$ExcludeTitles = @(
+    ".NET Framework",
+    "Malicious Software Removal Tool",
+    "Microsoft Defender",
+    "Preview"
+)
+
+$ExcludePattern = "(?i)" + (($ExcludeTitles | ForEach-Object {
+    [regex]::Escape($_)
+}) -join "|")
 
 # -----------------------
 # Prereqs (idempotent)
