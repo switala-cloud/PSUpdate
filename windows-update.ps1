@@ -9,9 +9,21 @@ $ExcludeTitles = @(
     "Preview"
 )
 
+# Build safe regex (auto-escaped)
 $ExcludePattern = "(?i)" + (($ExcludeTitles | ForEach-Object {
     [regex]::Escape($_)
 }) -join "|")
+
+# -----------------------
+# Functions
+# -----------------------
+
+function Test-RebootRequired {
+    if (Test-Path "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Component Based Servicing\RebootPending") { return $true }
+    if (Test-Path "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\WindowsUpdate\Auto Update\RebootRequired") { return $true }
+    if (Test-Path "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\PendingFileRenameOperations") { return $true }
+    return $false
+}
 
 # -----------------------
 # Prereqs (idempotent)
@@ -19,25 +31,25 @@ $ExcludePattern = "(?i)" + (($ExcludeTitles | ForEach-Object {
 
 Write-Output "Checking prerequisites..."
 
-# Ensure execution policy for this session
 Set-ExecutionPolicy Bypass -Scope Process -Force
+$ConfirmPreference = 'None'
 
-# Check NuGet provider
+# NuGet provider
 $nuget = Get-PackageProvider -Name NuGet -ErrorAction SilentlyContinue
 if (-not $nuget) {
     Write-Output "Installing NuGet provider..."
     Install-PackageProvider -Name NuGet -Force
 } else {
-    Write-Output "NuGet provider already installed."
+    Write-Output "NuGet already installed."
 }
 
-# Check PSWindowsUpdate module
+# PSWindowsUpdate module
 $pswu = Get-Module -ListAvailable -Name PSWindowsUpdate
 if (-not $pswu) {
     Write-Output "Installing PSWindowsUpdate module..."
     Install-Module PSWindowsUpdate -Force -SkipPublisherCheck
 } else {
-    Write-Output "PSWindowsUpdate module already available."
+    Write-Output "PSWindowsUpdate already available."
 }
 
 Import-Module PSWindowsUpdate
@@ -69,7 +81,7 @@ if ($updates) {
     if ($installed) {
         Write-Output "Updates installed successfully."
 
-        if (Get-WURebootStatus) {
+        if (Test-RebootRequired) {
             Write-Output "Reboot required. Exiting with code 101."
             exit 101
         } else {
